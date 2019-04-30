@@ -1,8 +1,8 @@
 package Compilers
 
-import java.util.ArrayList
+import java.util.{ArrayList, List}
 
-class TextCompiler(val sentences: ArrayList[SentenceCompiler] = new ArrayList[SentenceCompiler]()) extends Compiler {
+class TextCompiler(val sentences: List[SentenceCompiler]) extends Compiler {
   private var finalSentence: StringBuilder = _
 
   if (sentences.isEmpty) this.sentences.add(new SentenceCompiler(newLine = false))
@@ -41,8 +41,10 @@ class TextCompiler(val sentences: ArrayList[SentenceCompiler] = new ArrayList[Se
 
   def enableCommasSpaces(state: Boolean): Unit = this.sentences.forEach(_.enableCommasSpaces(state))
 
+  @deprecated
   def enableSOS(state: Boolean): Unit = this.sentences.forEach(_.enableSOS(state))
 
+  @deprecated
   def enableEOS(state: Boolean): Unit = this.sentences.forEach(_.enableEOS(state))
 
   def enableDots(state: Boolean): Unit = this.sentences.forEach(_.enableDots(state))
@@ -51,7 +53,7 @@ class TextCompiler(val sentences: ArrayList[SentenceCompiler] = new ArrayList[Se
 
   def enableWords(state: Boolean): Unit = this.sentences.forEach(_.enableWords(state))
 
-  def checkEmptyness(sentence: ArrayList[SentenceElem]): Boolean = sentence.size <= 3
+  def checkEmptyness(sentence: List[SentenceElem]): Boolean = sentence.size <= 3
 
 
   def compile(): Unit = {

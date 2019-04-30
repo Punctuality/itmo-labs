@@ -3,7 +3,7 @@ package CSVcontrol
 import java.io.File
 import java.util.Scanner
 
-import scala.collection.mutable.Buffer
+import scala.collection.mutable
 
 trait Reader[T]{
   def readAll: Array[T]
@@ -13,7 +13,7 @@ trait Reader[T]{
 
 class CSVReader(path: String, separator: String = ";") extends Reader[Array[String]]{
   private val reader: Scanner = new Scanner(new File(path)) // java.util.Scanner
-  private val storage: Buffer[Array[String]] = Buffer()
+  private val storage: mutable.Buffer[Array[String]] = mutable.Buffer()
 
   override def readAll: Array[Array[String]] = {
     while(reader.hasNext) read

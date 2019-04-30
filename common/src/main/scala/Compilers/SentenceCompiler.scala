@@ -1,15 +1,22 @@
 package Compilers
 
-import java.util.ArrayList
+import java.time.LocalDateTime
+import java.util
+import java.util.{Collections, Comparator}
 
 class SentenceCompiler(val sentence: Array[String] = Array[String](), val newLine: Boolean = true) extends Compiler {
-  private val sentences: java.util.ArrayList[SentenceElem] = new ArrayList[SentenceElem]()
+  private val sentences: util.List[SentenceElem] =
+    Collections.synchronizedList(new util.ArrayList[SentenceElem])
+//    new util.ArrayList[SentenceElem]()
   private var finalSentence: StringBuilder = _
 
+  private val nameCompr: Comparator[SentenceElem] =
+    (o1: SentenceElem, o2: SentenceElem) => o1.getValue.compareTo(o2.getValue)
+  private val positionCompr: Comparator[SentenceElem] =
+    (o1: SentenceElem, o2: SentenceElem) => o1.getPosition.compareTo(o2.getPosition)
 
-  if (newLine) this.sentences.add(Word("\n"))
 
-  this.sentences.add(new SOS())
+  if (newLine) this.sentences.add(Word("\n")(0))
 
   sentence.foreach(this.add)
 
@@ -18,11 +25,11 @@ class SentenceCompiler(val sentence: Array[String] = Array[String](), val newLin
   private def wordProcessor(word: String): SentenceElem = {
     var out: SentenceElem = null
     word match {
-      case "," => out = new Comma()
+      case "," => out = new Comma(this.sentences.size())
 
-      case "." => out = new Dot()
+      case "." => out = new Dot(this.sentences.size())
 
-      case _ => out = Word(word)
+      case _ => out = Word(word)(this.sentences.size())
     }
     out
   }
@@ -43,63 +50,69 @@ class SentenceCompiler(val sentence: Array[String] = Array[String](), val newLin
   def pop(index: Int): SentenceElem = {
     val out: SentenceElem = this.sentences.get(index)
     this.sentences.remove(index)
+    Range(index+1, this.sentences.size()-1).foreach{ind =>
+      this.sentences.get(ind).setPosition(this.sentences.get(ind).getPosition-1)}
     out
   }
 
   def enableDotsSpaces(state: Boolean): Unit = {
-    val typeComparator: Class[_ <: Dot] = (new Dot).getClass
+    val typeComparator: Class[_ <: Dot] = new Dot(0).getClass
     Range(0, this.sentences.size - 1).filter(this.sentences.get(_).getClass == typeComparator).foreach {
       this.sentences.get(_).setSpace(state)
     }
   }
 
   def enableCommasSpaces(state: Boolean): Unit = {
-    val typeComparator: Class[_ <: Comma] = (new Comma).getClass
+    val typeComparator: Class[_ <: Comma] = new Comma(0).getClass
     Range(0, this.sentences.size - 1).filter(this.sentences.get(_).getClass == typeComparator).foreach {
       this.sentences.get(_).setSpace(state)
     }
   }
 
+  @deprecated
   def enableSOS(state: Boolean): Unit = {
-    val typeComparator: Class[_ <: SOS] = (new SOS).getClass
+    val typeComparator: Class[_ <: SOS] = new SOS(0).getClass
     Range(0, this.sentences.size - 1).filter(this.sentences.get(_).getClass == typeComparator).foreach {
       this.sentences.get(_).setVisible(state)
     }
   }
 
+  @deprecated
   def enableEOS(state: Boolean): Unit = {
-    val typeComparator: Class[_ <: EOS] = (new EOS).getClass
+    val typeComparator: Class[_ <: EOS] = new EOS(0).getClass
     Range(0, this.sentences.size - 1).filter(this.sentences.get(_).getClass == typeComparator).foreach {
       this.sentences.get(_).setVisible(state)
     }
   }
 
-  def enableDots(state: Boolean) {
-    val typeComparator: Class[_ <: Dot] = (new Dot).getClass
+  def enableDots(state: Boolean): Unit = {
+    val typeComparator: Class[_ <: Dot] = new Dot(0).getClass
     Range(0, this.sentences.size - 1).filter(this.sentences.get(_).getClass == typeComparator).foreach {
       this.sentences.get(_).setVisible(state)
     }
   }
 
-  def enableCommas(state: Boolean) {
-    val typeComparator: Class[_ <: Comma] = (new Comma).getClass
+  def enableCommas(state: Boolean): Unit = {
+    val typeComparator: Class[_ <: Comma] = new Comma(0).getClass
     Range(0, this.sentences.size - 1).filter(this.sentences.get(_).getClass == typeComparator).foreach {
       this.sentences.get(_).setVisible(state)
     }
   }
 
-  def enableWords(state: Boolean) {
-    val typeComparator: Class[_ <: Word] = new Word("Test").getClass
+  def enableWords(state: Boolean): Unit = {
+    val typeComparator: Class[_ <: Word] = Word("")(0).getClass
     Range(0, this.sentences.size - 1).filter(this.sentences.get(_).getClass == typeComparator).foreach {
       this.sentences.get(_).setVisible(state)
     }
   }
 
 
-  def compile() {
+  def compile(): Unit = {
+    this.sentences.sort(nameCompr)
+    val tempList: util.List[SentenceElem] = this.sentences
+    tempList.sort(positionCompr)
     finalSentence = new StringBuilder()
-    this.sentences.add(new EOS())
-    this.sentences.forEach { elem =>
+    tempList.forEach { elem =>
       finalSentence.append(elem.getValue)
     }
   }
@@ -108,7 +121,7 @@ class SentenceCompiler(val sentence: Array[String] = Array[String](), val newLin
     finalSentence.toString
   }
 
-  def getSentences: ArrayList[SentenceElem] = {
+  def getSentences: util.List[SentenceElem] = {
     this.sentences
   }
 
@@ -142,7 +155,15 @@ class SentenceCompiler(val sentence: Array[String] = Array[String](), val newLin
 }
 
 
-trait SentenceElem {
+trait SentenceElem{
+  private val cdt: LocalDateTime = LocalDateTime.now
+
+  def getCreationDate: LocalDateTime = cdt
+
+  def getPosition: Int
+
+  def setPosition(i: Int): Unit
+
   def getValue: String
 
   def setSpace(space: Boolean): Unit
@@ -150,10 +171,12 @@ trait SentenceElem {
   def setVisible(visible: Boolean): Unit
 }
 
-class Comma extends SentenceElem {
+class Comma(var position: Int) extends SentenceElem {
   var value: String = ","
   var withSpace: Boolean = true
   var visible: Boolean = true
+
+  override def getPosition: Int = position
 
   def setVisible(visible: Boolean): Unit = {
     this.visible = visible
@@ -177,7 +200,7 @@ class Comma extends SentenceElem {
 
 
   override def equals(obj: Any): Boolean = {
-    val typeComparator = (new Comma).getClass
+    val typeComparator = new Comma(0).getClass
     obj.getClass == typeComparator
   }
 
@@ -188,13 +211,21 @@ class Comma extends SentenceElem {
 
 
   override def hashCode: Int = 90441
+
+  override def setPosition(i: Int): Unit =
+    position = i
 }
 
 
-class Dot extends SentenceElem {
+class Dot(var position: Int) extends SentenceElem {
   var value: String = "."
   var withSpace: Boolean = true
   var visible: Boolean = true
+
+  override def getPosition: Int = position
+
+  override def setPosition(i: Int): Unit =
+    position = i
 
   def setVisible(visible: Boolean): Unit = {
     this.visible = visible
@@ -217,7 +248,7 @@ class Dot extends SentenceElem {
   }
 
   override def equals(obj: Any): Boolean = {
-    val typeComparator = (new Comma).getClass
+    val typeComparator = new Comma(0).getClass
     obj.getClass == typeComparator
   }
 
@@ -229,10 +260,16 @@ class Dot extends SentenceElem {
   override def hashCode: Int = 807807
 }
 
-class SOS extends SentenceElem {
+@deprecated
+class SOS(var position: Int) extends SentenceElem {
   var value: String = "<Compilers.SOS>"
   var withSpace: Boolean = true
   var visible: Boolean = true
+
+  override def getPosition: Int = position
+
+  override def setPosition(i: Int): Unit =
+    position = i
 
   def setVisible(visible: Boolean): Unit = {
     this.visible = visible
@@ -255,7 +292,7 @@ class SOS extends SentenceElem {
   }
 
   override def equals(obj: Any): Boolean = {
-    val typeComparator = (new Comma).getClass
+    val typeComparator = new SOS(0).getClass
     obj.getClass == typeComparator
   }
 
@@ -267,10 +304,16 @@ class SOS extends SentenceElem {
   override def hashCode: Int = 505505
 }
 
-class EOS extends SentenceElem {
+@deprecated
+class EOS(var position: Int) extends SentenceElem {
   var value: String = "<Compilers.EOS>"
   var withSpace: Boolean = true
   var visible: Boolean = true
+
+  override def getPosition: Int = position
+
+  override def setPosition(i: Int): Unit =
+    position = i
 
   def setVisible(visible: Boolean): Unit = {
     this.visible = visible
@@ -293,7 +336,7 @@ class EOS extends SentenceElem {
   }
 
   override def equals(obj: Any): Boolean = {
-    val typeComparator = (new Comma).getClass
+    val typeComparator = new EOS(0).getClass
     obj.getClass == typeComparator
   }
 
@@ -305,11 +348,16 @@ class EOS extends SentenceElem {
   override def hashCode: Int = 503503
 }
 
-case class Word(var value: String) extends SentenceElem {
+case class Word(var value: String)(var position: Int) extends SentenceElem {
   var withSpace: Boolean = true
   var visible: Boolean = true
 
 //  if (value.isEmpty) throw new RuntimeException("String is empty!")
+
+  override def setPosition(i: Int): Unit =
+    position = i
+
+  override def getPosition: Int = position
 
   def setVisible(visible: Boolean): Unit = {
     this.visible = visible
@@ -332,7 +380,7 @@ case class Word(var value: String) extends SentenceElem {
   }
 
   override def equals(obj: Any): Boolean = {
-    val typeComparator = new Word("Test").getClass
+    val typeComparator = Word("")(0).getClass
     if (obj.getClass == typeComparator) {
       this.getValue.equals(obj.asInstanceOf[Word].getValue)
     } else {
@@ -345,3 +393,4 @@ case class Word(var value: String) extends SentenceElem {
 
   override def hashCode: Int = this.getValue.hashCode
 }
+
