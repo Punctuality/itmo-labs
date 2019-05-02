@@ -53,6 +53,7 @@ lazy val dependencies =
     // Versions
 
     val json4sVersion = "3.6.5"
+    val mailAPIVersion = "1.5.0-b01"
 //    val scalaLoggingVersion = "3.9.2"
 //    val akkaVersion = "2.5.21"
 //    val akkaActorVersion = "2.5.21"
@@ -63,6 +64,7 @@ lazy val dependencies =
 
     // Main Dependencies
 
+    val javamail = "javax.mail" % "mail" % mailAPIVersion
     val json4s = "org.json4s" %% "json4s-jackson" % json4sVersion
 //    val scalaLogging = "com.typesafe.scala-logging" %% "scala-logging" % scalaLoggingVersion
 //    val akkaActor = "com.typesafe.akka" %% "akka-actor" % akkaActorVersion
@@ -79,6 +81,7 @@ lazy val dependencies =
 
 lazy val commonDependencies = Seq(
   dependencies.json4s,
+  dependencies.javamail
 //  dependencies.akkaActor,
 //  dependencies.akkaStream,
 //  dependencies.akkaHttp,
