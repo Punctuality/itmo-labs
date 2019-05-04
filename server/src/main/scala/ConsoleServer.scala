@@ -1,16 +1,18 @@
 import java.net.{DatagramPacket, DatagramSocket, InetAddress}
 
 import CSVcontrol.CSVReader
-import Compilers.SentenceCompiler
 import commands.Constants._
 import commands.{Command, ConsoleOperator}
+import dao.inmemory.InMemoryWordDao
 import util.Serialization._
 
 import scala.collection.mutable
+import scala.concurrent.ExecutionContext
 
 class ConsoleServer(pathToStart: String,
                     pathToSave: String,
                     port: Int)
+                   (implicit ec: ExecutionContext)
   extends ConsoleOperator(pathToStart, pathToSave) {
 
   import ConsoleOperator._
@@ -42,13 +44,14 @@ class ConsoleServer(pathToStart: String,
     val csv: CSVReader = new CSVReader(this.pathToStart)
     val csvInput: Array[Array[String]] = csv.readAll
     val words: Array[String] = csvInput.map(_ (0))
-    val sentence = new SentenceCompiler(words)
-    implicit var curText: (SentenceCompiler, METAINFO) = (sentence, (System.currentTimeMillis(), mutable.Buffer("Started")))
+    val sentence = new InMemoryWordDao
+    sentence.insert(words.toSeq)
+    implicit var curText: (InMemoryWordDao, METAINFO) = (sentence, (System.currentTimeMillis(), mutable.Buffer("Started")))
 
     while (running) {
       val command: Command = this.receive[Command]
 
-      val stepResult: (String, (SentenceCompiler, METAINFO)) = consoleUIStep(command)
+      val stepResult: (String, (InMemoryWordDao, METAINFO)) = consoleUIStep(command)
       val newText = stepResult._2
       newText._2._2.append(stepResult._1)
       curText = newText

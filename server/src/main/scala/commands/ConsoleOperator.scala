@@ -1,8 +1,9 @@
 package commands
 
 import CSVcontrol._
-import Compilers._
+import domain._
 import commands.CommandType._
+import dao.inmemory.InMemoryWordDao
 import org.json4s._
 import org.json4s.jackson.JsonMethods._
 import util.Serialization._
@@ -34,7 +35,7 @@ class ConsoleOperator(pathToStart: String, pathToSave: String) extends Thread {
     try {
       var isExiting = false
       while (!isExiting) {
-        val stepResult: (String, (SentenceCompiler, METAINFO)) = consoleUIStep(readLine())
+        val stepResult: (String, (InMemoryWordDao, METAINFO)) = consoleUIStep(readLine())
         val newText = stepResult._2
         newText._2._2.append(stepResult._1)
         curText = newText
@@ -179,7 +180,7 @@ class ConsoleOperator(pathToStart: String, pathToSave: String) extends Thread {
 }
 
 object ConsoleOperator {
-  type Text = (SentenceCompiler, METAINFO)
+  type Text = (InMemoryWordDao, METAINFO)
   type METAINFO = (Long, mutable.Buffer[String]) // timestamp, commands logger
 
   private implicit val format: DefaultFormats.type = DefaultFormats
@@ -199,7 +200,7 @@ object ConsoleOperator {
   def importText(entity: Array[Byte]): Text = {
     val csvInput: Array[Array[String]] = entity
     val words: Array[String] = csvInput.map(_ (0))
-    val sentence = new SentenceCompiler(words)
+    val sentence = new InMemoryWordDao(words)
     val newText: Text = (sentence, (System.currentTimeMillis(), mutable.Buffer("Started")))
     newText
   }
@@ -208,7 +209,7 @@ object ConsoleOperator {
     val csv: CSVReader = new CSVReader(pathToText)
     val csvInput: Array[Array[String]] = csv.readAll
     val words: Array[String] = csvInput.map(_ (0))
-    val sentence = new SentenceCompiler(words)
+    val sentence = new InMemoryWordDao(words)
     val newText: Text = (sentence, (System.currentTimeMillis(), mutable.Buffer("Started")))
     newText
   }
