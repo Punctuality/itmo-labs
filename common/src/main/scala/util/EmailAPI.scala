@@ -8,7 +8,7 @@ import javax.mail.internet._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
-class EmailAPI(host: String, verbose: Boolean = true)
+class EmailAPI(host: String = "smtp.gmail.com", verbose: Boolean = true)
               (implicit auth: PasswordAuthentication,
                ec: ExecutionContext) {
 

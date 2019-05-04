@@ -2,11 +2,10 @@ package users
 
 import java.security.MessageDigest
 
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scala.io.Source
 
-object PasswordGenerator {
+class PasswordGenerator(implicit ec: ExecutionContext){
 
   private val urlGenerator: String = "https://www.dinopass.com/password/simple"
 
