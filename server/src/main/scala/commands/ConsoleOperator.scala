@@ -100,6 +100,7 @@ class ConsoleOperator(pathToStart: String, pathToSave: String)
           }.map(_ => s"Unknown command")
       }
 
+    
     stepFuture.recover {
       case exp: Exception =>
         val message = s"Exception occured: ${exp.getMessage}"
