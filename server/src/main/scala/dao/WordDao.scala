@@ -16,4 +16,6 @@ trait WordDao {
   def change(word: Word): Future[Unit]
 
   def delete(userId: UUID, position: Int): Future[Unit]
+
+  def compile(userId: UUID): Future[String]
 }

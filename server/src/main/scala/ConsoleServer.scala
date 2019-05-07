@@ -1,19 +1,23 @@
 import java.net.{DatagramPacket, DatagramSocket, InetAddress}
+import java.util.UUID
 
 import CSVcontrol.CSVReader
 import commands.Constants._
 import commands.{Command, ConsoleOperator}
-import dao.inmemory.InMemoryWordDao
+import dao._
+import domain.Word
 import util.Serialization._
 
-import scala.collection.mutable
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
 class ConsoleServer(pathToStart: String,
                     pathToSave: String,
                     port: Int)
-                   (implicit ec: ExecutionContext)
-  extends ConsoleOperator(pathToStart, pathToSave) {
+                   (implicit ec: ExecutionContext,
+                    users: UserDao,
+                    words: WordDao)
+  extends ConsoleOperator(pathToStart, pathToSave) with Runnable{
 
   import ConsoleOperator._
 
@@ -38,33 +42,40 @@ class ConsoleServer(pathToStart: String,
     socket.send(packet)
   }
 
+  def initText(userId: UUID): Seq[Word] = {
+    val csv: CSVReader = new CSVReader(this.pathToStart)
+    val csvInput: Array[Array[String]] = csv.readAll
+    val words: Seq[Word] = Word.makeWords(csvInput.map(_.head).toSeq, 0, userId)
+    words
+  }
+
   override def run(): Unit = {
     running = true
 
-    val csv: CSVReader = new CSVReader(this.pathToStart)
-    val csvInput: Array[Array[String]] = csv.readAll
-    val words: Array[String] = csvInput.map(_ (0))
-    val sentence = new InMemoryWordDao
-    sentence.insert(words.toSeq)
-    implicit var curText: (InMemoryWordDao, METAINFO) = (sentence, (System.currentTimeMillis(), mutable.Buffer("Started")))
-
-    while (running) {
+    while (running) { // TODO Registration
       val command: Command = this.receive[Command]
 
-      val stepResult: (String, (InMemoryWordDao, METAINFO)) = consoleUIStep(command)
-      val newText = stepResult._2
-      newText._2._2.append(stepResult._1)
-      curText = newText
-      running = !stepResult._1.equals("Exit command")
+      val stepResult: Future[String] = consoleUIStep(command)
 
-      this.send[Seq[String]](super.getPrintBuffer())
+      stepResult.map{message =>
+//        running = message equals "Exit command"
+//        this.send[Seq[String]](super.getPrintBuffer())
+        this.send[String](message)
+//        if (message equals "Exit command") {
+//          this.send[String]("Shut down.")
+//        }
+      }
+
+      stepResult.onComplete{
+        case Success(_) => println("Finished another request.")
+        case Failure(exception) => exception.printStackTrace()
+      }
+
     }
 
-    super.writeResponse("Shut down.")
-    super.writeResponse("Log: ")
-    curText._2._2.foreach(command => super.writeResponse("   " + command))
-    this.endSession
-    this.send[Seq[String]](super.getPrintBuffer())
+//    super.writeResponse("Shut down.")
+//    this.endSession
+//    this.send[Seq[String]](super.getPrintBuffer())
 
     socket.close()
   }

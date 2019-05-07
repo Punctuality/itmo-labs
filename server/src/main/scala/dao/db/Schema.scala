@@ -7,7 +7,6 @@ import slick.jdbc
 import slick.jdbc._
 import users.User
 
-// Use H2Profile to connect to an H2 database
 import java.util.UUID
 
 import slick.lifted.ProvenShape

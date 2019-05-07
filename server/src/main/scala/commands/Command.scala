@@ -1,3 +1,8 @@
 package commands
 
-case class Command(command: CommandType.Value, subEntity: Option[String], data: Option[Array[Byte]])
+import java.util.UUID
+
+case class Command(userId: UUID,
+                   command: CommandType.Value,
+                   subEntity: Option[String],
+                   data: Option[Array[Byte]])

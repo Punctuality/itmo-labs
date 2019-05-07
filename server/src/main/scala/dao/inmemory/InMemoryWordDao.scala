@@ -1,7 +1,6 @@
 package dao.inmemory
 
-import java.util
-import java.util.{Comparator, UUID}
+import java.util.UUID
 
 import dao.WordDao
 import domain._
@@ -10,17 +9,17 @@ import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future}
 
 class InMemoryWordDao(implicit ec: ExecutionContext) extends WordDao {
-  private val wordsTree: TrieMap[UUID, Vector[Word]] = new TrieMap[UUID, Vector[Word]]()
+  private val wordsMap: TrieMap[UUID, Vector[Word]] = new TrieMap[UUID, Vector[Word]]()
   private var finalSentence: StringBuilder = _
 
-//  private val nameCompr: Comparator[Word] =
-//    (o1: Word, o2: Word) => o1.value.compareTo(o2.value)
-//  private val positionCompr: Comparator[Word] =
-//    (o1: Word, o2: Word) => o1.position.compareTo(o2.position)
+  //  private val nameCompr: Comparator[Word] =
+  //    (o1: Word, o2: Word) => o1.value.compareTo(o2.value)
+  //  private val positionCompr: Comparator[Word] =
+  //    (o1: Word, o2: Word) => o1.position.compareTo(o2.position)
 
   override def insert(word: Word): Future[Unit] =
-    Future(this.wordsTree.update(word.userId,
-      this.wordsTree.getOrElse(word.userId, Vector[Word]()) :+ word
+    Future(this.wordsMap.update(word.userId,
+      this.wordsMap.getOrElse(word.userId, Vector[Word]()) :+ word
     )
     )
 
@@ -28,11 +27,11 @@ class InMemoryWordDao(implicit ec: ExecutionContext) extends WordDao {
     Future.traverse(words)(this.insert).map(_ => ())
 
   override def find(userId: UUID): Future[Option[Seq[Word]]] =
-    Future(this.wordsTree.get(userId))
+    Future(this.wordsMap.get(userId))
 
   override def change(word: Word): Future[Unit] =
-    Future(this.wordsTree.update(word.userId,
-      this.wordsTree.get(word.userId) match {
+    Future(this.wordsMap.update(word.userId,
+      this.wordsMap.get(word.userId) match {
         case Some(words) => words.map(itWord => if (word.id == itWord.id) word else itWord)
         case None => throw new RuntimeException("No such user!")
       }
@@ -40,21 +39,22 @@ class InMemoryWordDao(implicit ec: ExecutionContext) extends WordDao {
     )
 
   override def delete(userId: UUID, position: Int): Future[Unit] =
-    Future(this.wordsTree.update(userId,
-      this.wordsTree.get(userId) match {
+    Future(this.wordsMap.update(userId,
+      this.wordsMap.get(userId) match {
         case Some(words) => words.filter(word => word.position != position)
         case None => throw new RuntimeException("No such user!")
       }
     )
     )
 
-    def compile(userId: UUID): Unit = {
-      val tempList: Vector[Word] = this.wordsTree.getOrElse(userId, Vector[Word]()).sortBy(_.position)
-      finalSentence = new StringBuilder()
-      tempList.foreach{ elem =>
-        finalSentence.append(elem.value)
-      }
+  override def compile(userId: UUID): Future[String] = Future{
+    val tempList: Vector[Word] = this.wordsMap.getOrElse(userId, Vector[Word]()).sortBy(_.position)
+    finalSentence = new StringBuilder()
+    tempList.foreach { elem =>
+      finalSentence.append(elem.value)
     }
+    finalSentence.mkString(" ")
+  }
 
   //  def getWordSizes: Array[Int] = Range(0, sentences.size - 1).map(sentences.get(_).value.length).toArray
   //

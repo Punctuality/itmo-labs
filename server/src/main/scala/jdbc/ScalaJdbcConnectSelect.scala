@@ -32,7 +32,7 @@ object ScalaJdbcConnectSelect {
         println("host, user = " + host + ", " + user)
       }
     } catch {
-      case e => e.printStackTrace
+      case e => e.printStackTrace()
     }
     connection.close()
   }

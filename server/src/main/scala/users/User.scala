@@ -5,7 +5,7 @@ import java.util.UUID
 import javax.mail.PasswordAuthentication
 import util.EmailAPI
 
-import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.ExecutionContext
 import scala.concurrent.Future
 
 case class User(id: UUID,
@@ -15,14 +15,13 @@ case class User(id: UUID,
 
 object User {
 
-  val passwordGenerator = new PasswordGenerator
-
   def generateUser(name: Option[String],
-                   email: Option[(String,
-                     PasswordAuthentication, String)]): Future[User] =
+                   email: Option[(String, PasswordAuthentication, String)])
+                  (implicit ec: ExecutionContext): Future[User] =
     Future(UUID.randomUUID()).flatMap { id =>
+      val passwordGenerator = new PasswordGenerator
       passwordGenerator.generatePasswordAsync.map { pass =>
-        val hash = passwordGenerator.hashPassword(pass)
+        val hash = PasswordGenerator.hashPassword(pass)
 
         (User.apply(id, hash, name, email.map(_._1)), pass)
       }

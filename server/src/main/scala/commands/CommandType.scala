@@ -1,5 +1,7 @@
 package commands
 
+import java.util.UUID
+
 import CSVcontrol.CSVReader
 
 object CommandType extends Enumeration {
@@ -15,13 +17,15 @@ object CommandType extends Enumeration {
   IMPORT,
   SAVE,
   LOAD,
+  REGISTER,
+  LOGIN,
   UNKNOWN = Value
 
 
-  implicit def stringToCommand(command: String): Command = {
+  implicit def stringToCommand(command: (UUID, String)): Command = {
     import util.Serialization._
 
-    val p = command.split(" ").toList
+    val p = command._2.split(" ").toList
     val com = p.head.toUpperCase match {
       case "INFO" => INFO
       case "SHOW" => SHOW
@@ -38,7 +42,7 @@ object CommandType extends Enumeration {
       case _ => UNKNOWN
     }
 
-    Command(com, p.lift(1), p.lift(2).map { path =>
+    Command(command._1, com, p.lift(1), p.lift(2).map { path =>
       val csv: CSVReader = new CSVReader(path)
       val csvInput: Array[Array[String]] = csv.readAll
       csvInput

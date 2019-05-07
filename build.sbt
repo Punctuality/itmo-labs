@@ -22,9 +22,9 @@ lazy val common = project
     settings,
     libraryDependencies ++= commonDependencies
   )
-  .dependsOn(
-    serverSide
-  )
+//  .dependsOn(
+//    serverSide
+//  )
 
 lazy val clientSide = project
   .in(file("client"))
@@ -49,10 +49,9 @@ lazy val serverSide = project
       "org.slf4j" % "slf4j-nop" % "1.6.4",
       "com.typesafe.slick" %% "slick-hikaricp" % "3.3.0"
     )
-  )
-  .dependsOn(
-    common
-  )
+  ).dependsOn(
+  common
+)
 
 // DEPENDENCIES
 
