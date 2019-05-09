@@ -51,52 +51,9 @@ class InMemoryWordDao(implicit ec: ExecutionContext) extends WordDao {
     val tempList: Vector[Word] = this.wordsMap.getOrElse(userId, Vector[Word]()).sortBy(_.position)
     finalSentence = new StringBuilder()
     tempList.foreach { elem =>
-      finalSentence.append(elem.value)
+      finalSentence.append((if (elem.visible) elem.value else "") + (if (elem.withSpace) " " else ""))
     }
-    finalSentence.mkString(" ")
+    finalSentence.toString
   }
 
-  //  def getWordSizes: Array[Int] = Range(0, sentences.size - 1).map(sentences.get(_).value.length).toArray
-  //
-  //  private def wordProcessor(word: String): Word =
-  //    Word(word, this.sentences.size())
-  //
-  //
-  //  def add(word: String): Unit = {
-  //    this.sentences.add(wordProcessor(word))
-  //  }
-  //
-  //  def add(word: Word): Unit = word match { case Word(line) =>
-  //    this.sentences.add(wordProcessor(line))
-  //  }
-  //
-  //  def size: Int = {
-  //    this.sentences.size()
-  //  }
-  //
-  //  def pop(index: Int): Word = {
-  //    val out: Word = this.sentences.get(index)
-  //    this.sentences.remove(index)
-  //    Range(index+1, this.sentences.size()-1).foreach{ind =>
-  //      this.sentences.get(ind).setPosition(this.sentences.get(ind).getPosition-1)}
-  //    out
-  //  }
-  //
-  //  def enableWords(state: Boolean): Unit = {
-  //    Range(0, this.sentences.size - 1).foreach {
-  //      this.sentences.get(_).setVisible(state)
-  //    }
-  //  }
-  //
-  //
-  //
-  //  def getResult: String = {
-  //    finalSentence.toString
-  //  }
-  //
-  //  def getSentences: util.List[Word] = {
-  //    this.sentences
-  //  }
-  //
-  //
 }

@@ -5,8 +5,7 @@ import java.util.UUID
 import javax.mail.PasswordAuthentication
 import util.EmailAPI
 
-import scala.concurrent.ExecutionContext
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 case class User(id: UUID,
                 passwordHash: String,
@@ -17,7 +16,7 @@ object User {
 
   def generateUser(name: Option[String],
                    email: Option[(String, PasswordAuthentication, String)])
-                  (implicit ec: ExecutionContext): Future[User] =
+                  (implicit ec: ExecutionContext): Future[(User, String)] =
     Future(UUID.randomUUID()).flatMap { id =>
       val passwordGenerator = new PasswordGenerator
       passwordGenerator.generatePasswordAsync.map { pass =>
@@ -28,19 +27,26 @@ object User {
     }.flatMap { pair =>
       val message =
         s"""
+           |Dear ${pair._1.name.getOrElse("Anonymous")}!
            |Your new credentials:
-           |ID: ${pair._1.id}
-           |Password: ${pair._2}
+           |ID:
+           |${pair._1.id}
+           |
+           |Password:
+           |${pair._2}
+           |
+           |Please remember them properly. :)
         """.stripMargin
 
-      val notify: Future[Unit] = if (email.isEmpty) {
-        Future(println(message))
+      val notify: Future[String] = if (email.isEmpty) {
+        Future.successful(message)
       } else {
         implicit val auth: PasswordAuthentication = email.get._2
         val emailAPI = new EmailAPI(email.get._3)
         emailAPI.sendMessage(email.get._1)("Password Notification", message)
+          .map(_ => s"Password was sent to ${email.get._1}")
       }
 
-      notify.map(_ => pair._1)
+      notify.map(pair._1 -> _)
     }
 }

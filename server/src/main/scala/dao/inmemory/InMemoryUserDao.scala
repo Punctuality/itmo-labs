@@ -28,4 +28,6 @@ class InMemoryUserDao(implicit ec: ExecutionContext) extends UserDao {
       }
     )
     )
+
+  override def show: Future[Seq[String]] = ???
 }

@@ -14,4 +14,6 @@ trait UserDao {
   def list: Future[Seq[User]]
 
   def  change(user: User): Future[Unit]
+
+  def show: Future[Seq[String]]
 }

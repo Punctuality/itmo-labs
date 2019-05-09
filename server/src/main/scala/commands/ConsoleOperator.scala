@@ -3,23 +3,24 @@ package commands
 import java.util.UUID
 
 import CSVcontrol._
-import domain._
 import commands.CommandType._
 import dao.{UserDao, WordDao}
-import dao.inmemory.InMemoryWordDao
+import domain._
+import javax.mail.PasswordAuthentication
 import org.json4s._
 import org.json4s.jackson.JsonMethods._
+import users.User
 import util.Serialization._
 
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
-import scala.io.StdIn._
 import scala.util.Success
 
-class ConsoleOperator(pathToStart: String, pathToSave: String)
+class ConsoleOperator(pathToStart: String, pathToSave: String, emailHost: String)
                      (implicit ec: ExecutionContext,
                       users: UserDao,
-                      words: WordDao) {
+                      words: WordDao,
+                      auth: PasswordAuthentication) {
 
   import ConsoleOperator._
 
@@ -63,19 +64,19 @@ class ConsoleOperator(pathToStart: String, pathToSave: String)
       save(pathToSave, someSeq.getOrElse(Seq()).map(_.value))
     )
 
-  def consoleUIStep(userInput: Command): Future[String] = {
+  def consoleUIStep(userInput: Command): Future[Array[Byte]] = {
     implicit val userId: UUID = userInput.userId
 
     val command: CommandType.Value = userInput.command
     val parsed: Option[String] = userInput.subEntity
     val data: Option[Array[Byte]] = userInput.data
 
-    val stepFuture: Future[String] = // TODO Registration
+    val stepFuture: Future[Array[Byte]] =
       command match {
         case INFO =>
-          info()
+          info().map(i => i)
         case SHOW =>
-          show()
+          show().map(i => i)
         case ADD =>
           add(parsed.get).map(_ => s"Add command: ${parsed.get}")
         case ADDIFMAX =>
@@ -86,8 +87,10 @@ class ConsoleOperator(pathToStart: String, pathToSave: String)
           remove_lower(parsed.get).map(_ => s"RemoveLower command: ${parsed.get}")
         case REMOVEALL =>
           remove_all(parsed.get).map(_ => s"RemoveAll command: ${parsed.get}")
-        case EXIT => exit
-        case HELP => help()
+        case EXIT => exit.map(i => i)
+        case LOGIN => login(parsed.get).map(i => i)
+        case REGISTER => register(data.get, emailHost).map(i => i)
+        case HELP => help().map(i => i)
         case IMPORT =>
           importText(data.get).map(_ => "Imported new text")
         case SAVE =>
@@ -100,7 +103,6 @@ class ConsoleOperator(pathToStart: String, pathToSave: String)
           }.map(_ => s"Unknown command")
       }
 
-    
     stepFuture.recover {
       case exp: Exception =>
         val message = s"Exception occured: ${exp.getMessage}"
@@ -110,7 +112,25 @@ class ConsoleOperator(pathToStart: String, pathToSave: String)
     }
   }
 
-  def exit(implicit userId: UUID): Future[String] =
+  def register(data: (Option[String], Option[String]), emailHost: String)
+              (implicit userId: UUID): Future[Option[(User, String)]] =
+    User.generateUser(data._1, data._2.map(email => (email, auth, emailHost)))
+      .flatMap { pair =>
+        users.insert(pair._1)
+          .map(_ => Some(pair))
+      }
+      .recover {
+        case _ => None
+      }
+
+  def login(password: String)(implicit userId: UUID): Future[Option[(User, String)]] =
+    users.find(userId).map {
+      case Some(user) => if (user.passwordHash == password) Some(user)
+        .map(_ -> "Correct Credentials.") else None
+      case None => None
+    }
+
+  def exit(implicit userId: UUID): Future[String] = // TODO
     endSession.map(_ => "Exit command")
 
   def info(printOut: Boolean = true)(implicit userId: UUID): Future[String] =
@@ -138,7 +158,7 @@ class ConsoleOperator(pathToStart: String, pathToSave: String)
     users.find(userId).map { user =>
       val out: String =
         s"""
-           | As ${user.map(_.name).getOrElse("Anonymous")}
+           | As ${user.get.name.getOrElse("Anonymous")}
            | You can type such commands as:
            | * info // showing an info about text state
            | * show // showing text
@@ -158,44 +178,54 @@ class ConsoleOperator(pathToStart: String, pathToSave: String)
     }
 
   def add(jsonInput: String)(implicit userId: UUID): Future[Unit] =
-    words.find(userId).map(_.map { seq =>
-      val maxPosition = seq.last.position
-      Word.makeWord(jsonParser(jsonInput), maxPosition + 1, userId)
-    }).flatMap(_.map(words.insert).get)
+    words.find(userId).map {
+      case Some(seq) => seq.last.position
+      case None => 0
+    }.map { maxPosition =>
+      val template: WordParseTemplate = jsonParser(jsonInput)
+      Word.makeWord(template, maxPosition + 1, userId)
+    }.flatMap { word =>
+      words.insert(word)
+    }
 
 
   def add_if_max(jsonInput: String)(implicit userId: UUID): Future[Unit] =
-    words.find(userId).map(_.flatMap { seq =>
-      val maxPosition = seq.last.position
-      val newWord: Word = Word.makeWord(jsonParser(jsonInput), maxPosition + 1, userId)
-      val maxTextValue: Int = seq.map(_.value.length).max
-      if (newWord.value.length >= maxTextValue) Some(newWord) else None
-    }).flatMap(_.map(words.insert).get)
+    words.find(userId).map {
+      case Some(seq) =>
+        val newWord: Word = Word.makeWord(jsonParser(jsonInput), seq.last.position + 1, userId)
+        val maxTextValue: Int = seq.map(_.value.length).max
+        if (newWord.value.length >= maxTextValue) Some(newWord) else None
+      case None => Some(Word.makeWord(jsonParser(jsonInput), 0 + 1, userId))
+    }.flatMap {
+      _.map(words.insert).getOrElse(Future.successful())
+    }
 
   def remove(jsonInput: String)(implicit userId: UUID): Future[Unit] =
     words.find(userId).map(_.flatMap { seq =>
       val maxPosition = seq.last.position
       val newWord: Word = Word.makeWord(jsonParser(jsonInput), maxPosition + 1, userId)
       seq.find(_.value == newWord.value).map(_.position)
-    }).flatMap(pos => words.delete(userId, pos.get))
+    }).flatMap(_.map(words.delete(userId, _)).getOrElse(Future.successful()))
 
   def remove_lower(jsonInput: String)(implicit userId: UUID): Future[Unit] =
-    words.find(userId).map { someSeq =>
-      val seq: Seq[Word] = someSeq.get
-      val maxPosition = seq.last.position
-      val newWord: Word = Word.makeWord(jsonParser(jsonInput), maxPosition + 1, userId)
-
-      seq.filter(_.value.length <= newWord.value.length).map(_.position)
-    }.flatMap(pos => Future.traverse(pos)(words.delete(userId, _))).map(_ => ())
+    words.find(userId).map {
+      _.map { seq =>
+        val maxPosition = seq.last.position
+        val newWord: Word = Word.makeWord(jsonParser(jsonInput), maxPosition + 1, userId)
+        seq.filter(_.value.length <= newWord.value.length).map(_.position)
+      }
+    }.flatMap(_.map(pos => Future.traverse(pos)(words.delete(userId, _)))
+      .getOrElse(Future.successful()).map(_ => ()))
 
   def remove_all(jsonInput: String)(implicit userId: UUID): Future[Unit] =
-    words.find(userId).map { someSeq =>
-      val seq: Seq[Word] = someSeq.get
-      val maxPosition = seq.last.position
-      val newWord: Word = Word.makeWord(jsonParser(jsonInput), maxPosition + 1, userId)
-
-      seq.filter(_.value.length == newWord.value.length).map(_.position)
-    }.flatMap(pos => Future.traverse(pos)(words.delete(userId, _))).map(_ => ())
+    words.find(userId).map {
+      _.map { seq =>
+        val maxPosition = seq.last.position
+        val newWord: Word = Word.makeWord(jsonParser(jsonInput), maxPosition + 1, userId)
+        seq.filter(_.value.length == newWord.value.length).map(_.position)
+      }
+    }.flatMap(_.map(pos => Future.traverse(pos)(words.delete(userId, _)))
+      .getOrElse(Future.successful()).map(_ => ()))
 
 
   /*

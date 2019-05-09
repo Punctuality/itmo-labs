@@ -6,6 +6,8 @@ import commands.Constants._
 import commands.{Command, ConsoleOperator}
 import dao._
 import domain.Word
+import javax.mail.PasswordAuthentication
+import users.User
 import util.Serialization._
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -13,13 +15,16 @@ import scala.util.{Failure, Success}
 
 class ConsoleServer(pathToStart: String,
                     pathToSave: String,
-                    port: Int)
+                    port: Int,
+                    emailHost: String = "smtp.gmail.com")
                    (implicit ec: ExecutionContext,
                     users: UserDao,
-                    words: WordDao)
-  extends ConsoleOperator(pathToStart, pathToSave) with Runnable{
+                    words: WordDao,
+                    auth: PasswordAuthentication)
+  extends ConsoleOperator(pathToStart, pathToSave, emailHost) with Runnable {
 
-  import ConsoleOperator._
+  //  import ConsoleOperator._
+  import commands.CommandType._
 
   private val socket: DatagramSocket = new DatagramSocket(port)
   socket.setReuseAddress(true)
@@ -27,6 +32,8 @@ class ConsoleServer(pathToStart: String,
   private var address: InetAddress = _
   private var clientPort: Int = _
   private val buf: Array[Byte] = new Array[Byte](BUFFER_SIZE)
+
+  lazy val getThread: Thread = new Thread(this)
 
   def receive[T]: T = {
     val packet: DatagramPacket = new DatagramPacket(buf, buf.length)
@@ -52,30 +59,32 @@ class ConsoleServer(pathToStart: String,
   override def run(): Unit = {
     running = true
 
-    while (running) { // TODO Registration
+    while (running) {
       val command: Command = this.receive[Command]
 
-      val stepResult: Future[String] = consoleUIStep(command)
+      println("New "+ command)
 
-      stepResult.map{message =>
-//        running = message equals "Exit command"
-//        this.send[Seq[String]](super.getPrintBuffer())
-        this.send[String](message)
-//        if (message equals "Exit command") {
-//          this.send[String]("Shut down.")
-//        }
+      val stepResult: Future[Array[Byte]] = consoleUIStep(command).map { message =>
+        if (Seq(LOGIN, REGISTER).contains(command.command)) {
+//          println("Message (Bytes): " + message)
+//          println("Message (Parsed): " + (message: Option[(User, String)]))
+
+          this.send[Option[(User, String)]](message)
+        } else {
+          this.send[String](message)
+        }
       }
 
-      stepResult.onComplete{
+      stepResult.onComplete {
         case Success(_) => println("Finished another request.")
         case Failure(exception) => exception.printStackTrace()
       }
 
     }
 
-//    super.writeResponse("Shut down.")
-//    this.endSession
-//    this.send[Seq[String]](super.getPrintBuffer())
+    //    super.writeResponse("Shut down.")
+    //    this.endSession
+    //    this.send[Seq[String]](super.getPrintBuffer())
 
     socket.close()
   }
