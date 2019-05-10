@@ -16,8 +16,8 @@ object Labor7Starter {
     implicit val uDao: UserDao = new SlickUserDao()
     implicit val auth: PasswordAuthentication =
       new PasswordAuthentication(
-        "email@gmail.com",
-        "pass"
+        "e@mail.com",
+        "password"
       )
 
     val port: Int = 8888

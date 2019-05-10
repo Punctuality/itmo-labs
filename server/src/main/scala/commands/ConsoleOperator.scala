@@ -243,7 +243,10 @@ object ConsoleOperator {
 
   private implicit val format: DefaultFormats.type = DefaultFormats
 
-  private def jsonParser(json: String): WordParseTemplate = parse(json).extract[WordParseTemplate]
+  private def jsonParser(json: String): WordParseTemplate = {
+    println(s"Parsing string: |${json}|") // TODO
+    parse(json).extract[WordParseTemplate]
+  }
 
   def importText(entity: Array[Byte]): Array[String] = {
     val csvInput: Array[Array[String]] = entity

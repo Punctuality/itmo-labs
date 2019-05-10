@@ -17,15 +17,16 @@ case class Word(id: UUID = UUID.randomUUID,
   override def hashCode: Int = this.value.hashCode + this.position.hashCode + userId.hashCode
 }
 
-case class WordParseTemplate(s: String)
 
 object Word {
   def makeWord(word: WordParseTemplate, position: Int, userId: UUID): Word =
-    makeWord(word.s, position, userId)
+  makeWord(word.s, position, userId)
 
   def makeWord(word: String, position: Int, userId: UUID): Word =
-    Word(position = position, value = word, userId = userId)
+  Word(position = position, value = word, userId = userId)
 
   def makeWords(words: Seq[String], startPosition: Int, userId: UUID): Seq[Word] =
-    words.zipWithIndex.map(pair => makeWord(pair._1, pair._2 + startPosition, userId))
+  words.zipWithIndex.map(pair => makeWord(pair._1, pair._2 + startPosition, userId))
 }
+
+case class WordParseTemplate(s: String)

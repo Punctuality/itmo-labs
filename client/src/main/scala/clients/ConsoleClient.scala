@@ -1,3 +1,5 @@
+package clients
+
 import java.net.{InetSocketAddress, PortUnreachableException}
 import java.util.UUID
 

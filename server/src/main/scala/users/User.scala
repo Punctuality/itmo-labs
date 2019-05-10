@@ -39,6 +39,7 @@ object User {
         """.stripMargin
 
       val notify: Future[String] = if (email.isEmpty) {
+        println("No Email Provided") // TODO
         Future.successful(message)
       } else {
         implicit val auth: PasswordAuthentication = email.get._2

@@ -62,7 +62,7 @@ class ConsoleServer(pathToStart: String,
     while (running) {
       val command: Command = this.receive[Command]
 
-      println("New "+ command)
+      println("New "+ command) // TODO
 
       val stepResult: Future[Array[Byte]] = consoleUIStep(command).map { message =>
         if (Seq(LOGIN, REGISTER).contains(command.command)) {
